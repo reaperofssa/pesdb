@@ -86,6 +86,96 @@ app.get('/api/player', async (req, res) => {
   }
 });
 
+
+const positionsNeeded = {
+  GK: 1,
+  CB: 2,
+  LB: 1,
+  RB: 1,
+  DMF: 1,
+  AMF: 2,
+  RWF: 2,
+  CF: 2,
+};
+
+const posMap = {
+  "Goalkeeper": "GK",
+  "Centre Back": "CB",
+  "Left Back": "LB",
+  "Right Back": "RB",
+  "Defensive Midfielder": "DMF",
+  "Attacking Midfielder": "AMF",
+  "Right Wing Forward": "RWF",
+  "Centre Forward": "CF",
+};
+
+app.get('/generate', async (req, res) => {
+  const baseUrl = 'https://pesdb.net/efootball/';
+  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,12&page=';
+
+  const allPlayers = {};
+
+  try {
+    for (let page = 9; page <= 20; page++) {
+      const { data: html } = await axios.get(`${baseUrl}${query}${page}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+
+      const $ = cheerio.load(html);
+
+      $('table.players tr').each((_, row) => {
+        const posCell = $(row).find('td').eq(0);
+        const nameCell = $(row).find('td').eq(1);
+        if (!posCell.length || !nameCell.length) return;
+
+        const position = posMap[$(posCell).find('div').attr('title')];
+        if (!position) return;
+
+        const idMatch = nameCell.find('a').attr('href')?.match(/id=(\d+)/);
+        const id = idMatch ? idMatch[1] : null;
+        if (!id) return;
+
+        const player = {
+          name: nameCell.text().trim(),
+          id,
+          position,
+          age: $(row).find('td').eq(6).text().trim(),
+          rating: $(row).find('td').eq(7).text().trim()
+        };
+
+        if (!allPlayers[position]) allPlayers[position] = [];
+        allPlayers[position].push(player);
+      });
+    }
+
+    const finalTeam = {};
+    for (const [pos, count] of Object.entries(positionsNeeded)) {
+      const pool = allPlayers[pos];
+      if (!pool || pool.length < count) {
+        return res.status(500).json({ error: `Not enough players for position: ${pos}` });
+      }
+
+      const selected = [];
+      const usedIndices = new Set();
+
+      while (selected.length < count) {
+        const randIdx = Math.floor(Math.random() * pool.length);
+        if (!usedIndices.has(randIdx)) {
+          selected.push(pool[randIdx]);
+          usedIndices.add(randIdx);
+        }
+      }
+
+      finalTeam[pos] = selected;
+    }
+
+    res.json({ team: finalTeam });
+  } catch (err) {
+    console.error('⚠️ Generate route failed:', err.message);
+    res.status(500).json({ error: 'Failed to generate team' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🟢 Server running at http://localhost:${PORT}`);
 });
