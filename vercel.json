@@ -1,7 +1,8 @@
 {
+  "version": 2,
   "functions": {
     "api/player.js": {
-      "maxDuration": 5
+      "runtime": "nodejs18.x"
     }
   }
 }
