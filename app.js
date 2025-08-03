@@ -19,17 +19,14 @@ app.get('/api/player', async (req, res) => {
     const $ = cheerio.load(html);
     const data = {};
 
-    // Player name
     data['Player Name'] = $('h1').first().text().trim();
 
-    // Structured stats from main table
     $('table tr').each((_, row) => {
       const th = $(row).find('th').text().trim().replace(/:$/, '');
       const td = $(row).find('td').text().trim();
       if (th && td) data[th] = isNaN(td) ? td : Number(td);
     });
 
-    // Stats block (second table)
     const statsBlock = {};
     const statKeys = [
       "Overall Rating", "Offensive Awareness", "Ball Control", "Dribbling", "Tight Possession",
@@ -51,11 +48,9 @@ app.get('/api/player', async (req, res) => {
 
     Object.assign(data, statsBlock);
 
-    // Playing Style
     const playStyle = $('h3:contains("Playing Style")').next().text().trim();
     data["Playing Style"] = playStyle || null;
 
-    // Player Skills
     const skills = [];
     $('h3:contains("Player Skills")').nextUntil('h3').each((_, el) => {
       const skill = $(el).text().trim();
@@ -63,7 +58,6 @@ app.get('/api/player', async (req, res) => {
     });
     data["Player Skills"] = skills;
 
-    // AI Playing Styles
     const aiStyles = [];
     $('h3:contains("AI Playing Styles")').nextUntil('h3').each((_, el) => {
       const ai = $(el).text().trim();
@@ -71,7 +65,6 @@ app.get('/api/player', async (req, res) => {
     });
     data["AI Playing Styles"] = aiStyles;
 
-    // Card Front / Back / Type
     const cardBox = $('td[colspan="2"] .flip-box-inner');
     if (cardBox.length) {
       data['Card Front'] = cardBox.find('.flip-box-front img').attr('src') || null;
@@ -80,9 +73,10 @@ app.get('/api/player', async (req, res) => {
       data['Card Type'] = cardType || null;
     }
 
-    // Remove junk keys like this malformed key
     Object.keys(data).forEach(k => {
-      if (k.length > 60 || k.includes('Share this player')) delete data[k];
+      if (k.toLowerCase().includes('twitter') || k.length > 60 || k.includes('Share this player')) {
+        delete data[k];
+      }
     });
 
     res.json(data);
