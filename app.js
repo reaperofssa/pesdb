@@ -17,58 +17,43 @@ app.get('/api/player', async (req, res) => {
     });
 
     const $ = cheerio.load(html);
-    const player = {};
+    const data = {};
 
-    const parseNumber = (str) => {
-      const match = str.match(/(\d{2,3})$/);
-      return match ? parseInt(match[1], 10) : str;
-    };
+    // Player name
+    data['Player Name'] = $('h1').first().text().trim();
 
-    player["Player Name"] = $('h1').first().text().trim();
-
-    // General info
-    const table = $('table').first();
-    table.find('tr').each((_, el) => {
-      const key = $(el).find('th').text().trim().replace(/:$/, '');
-      const val = $(el).find('td').text().trim();
-      if (key && val) {
-        player[key] = parseNumber(val);
-      }
+    // Structured stats from main table
+    $('table tr').each((_, row) => {
+      const th = $(row).find('th').text().trim().replace(/:$/, '');
+      const td = $(row).find('td').text().trim();
+      if (th && td) data[th] = isNaN(td) ? td : Number(td);
     });
 
-    // Ratings block
-    const ratingLabels = [
-      'Overall Rating', 'Offensive Awareness', 'Ball Control', 'Dribbling', 'Tight Possession',
-      'Low Pass', 'Lofted Pass', 'Finishing', 'Heading', 'Set Piece Taking', 'Curl',
-      'Defensive Awareness', 'Tackling', 'Aggression', 'Defensive Engagement',
-      'GK Awareness', 'GK Catching', 'GK Parrying', 'GK Reflexes', 'GK Reach',
-      'Speed', 'Acceleration', 'Kicking Power', 'Jumping', 'Physical Contact',
-      'Balance', 'Stamina'
+    // Stats block (second table)
+    const statsBlock = {};
+    const statKeys = [
+      "Overall Rating", "Offensive Awareness", "Ball Control", "Dribbling", "Tight Possession",
+      "Low Pass", "Lofted Pass", "Finishing", "Heading", "Set Piece Taking", "Curl",
+      "Defensive Awareness", "Tackling", "Aggression", "Defensive Engagement",
+      "GK Awareness", "GK Catching", "GK Parrying", "GK Reflexes", "GK Reach",
+      "Speed", "Acceleration", "Kicking Power", "Jumping", "Physical Contact",
+      "Balance", "Stamina", "Weak Foot Usage", "Weak Foot Accuracy", "Form", "Injury Resistance"
     ];
 
-    const footLabels = ['Weak Foot Usage', 'Weak Foot Accuracy', 'Form', 'Injury Resistance'];
-    let currentLabel = 0, currentFoot = 0;
-
-    $('table').eq(1).find('tr td').each((_, td) => {
-      const text = $(td).text().trim();
-      if (!text) return;
-
-      if (currentLabel < ratingLabels.length) {
-        player[ratingLabels[currentLabel]] = parseNumber(text);
-        currentLabel++;
-      } else if (currentFoot < footLabels.length) {
-        player[footLabels[currentFoot]] = text;
-        currentFoot++;
+    let statIndex = 0;
+    $('table').eq(1).find('td').each((_, td) => {
+      const val = $(td).text().trim();
+      if (val && statIndex < statKeys.length) {
+        const key = statKeys[statIndex++];
+        statsBlock[key] = isNaN(val) ? val : Number(val);
       }
     });
 
+    Object.assign(data, statsBlock);
+
     // Playing Style
-    const playstyle = $('td[colspan="2"]')
-      .find('h3:contains("Playing Style")')
-      .next()
-      .text()
-      .trim();
-    player["Playing Style"] = playstyle;
+    const playStyle = $('h3:contains("Playing Style")').next().text().trim();
+    data["Playing Style"] = playStyle || null;
 
     // Player Skills
     const skills = [];
@@ -76,7 +61,7 @@ app.get('/api/player', async (req, res) => {
       const skill = $(el).text().trim();
       if (skill) skills.push(skill);
     });
-    player["Player Skills"] = skills;
+    data["Player Skills"] = skills;
 
     // AI Playing Styles
     const aiStyles = [];
@@ -84,21 +69,25 @@ app.get('/api/player', async (req, res) => {
       const ai = $(el).text().trim();
       if (ai) aiStyles.push(ai);
     });
-    player["AI Playing Styles"] = aiStyles;
+    data["AI Playing Styles"] = aiStyles;
 
-    // Card image
+    // Card Front / Back / Type
     const cardBox = $('td[colspan="2"] .flip-box-inner');
     if (cardBox.length) {
-      player['Card Front'] = cardBox.find('.flip-box-front img').attr('src') || null;
-      player['Card Back'] = cardBox.find('.flip-box-back img').attr('src') || null;
+      data['Card Front'] = cardBox.find('.flip-box-front img').attr('src') || null;
+      data['Card Back'] = cardBox.find('.flip-box-back img').attr('src') || null;
       const cardType = cardBox.closest('td').text().trim().split('\n').pop().trim();
-      player['Card Type'] = cardType || null;
+      data['Card Type'] = cardType || null;
     }
 
-    return res.json(player);
+    // Remove junk keys like this malformed key
+    Object.keys(data).forEach(k => {
+      if (k.length > 60 || k.includes('Share this player')) delete data[k];
+    });
 
+    res.json(data);
   } catch (err) {
-    console.error('Scrape error:', err.message);
+    console.error('❌ Scrape error:', err.message);
     res.status(500).json({ error: 'Failed to fetch or parse player data.' });
   }
 });
