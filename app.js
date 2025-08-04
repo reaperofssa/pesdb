@@ -96,6 +96,7 @@ const positionsNeeded = {
   RB: 1,
   DMF: 1,
   AMF: 2,
+  LWF: 2,
   RWF: 2,
   CF: 2,
 };
@@ -107,13 +108,14 @@ const posMap = {
   "Right Back": "RB",
   "Defensive Midfielder": "DMF",
   "Attacking Midfielder": "AMF",
+  "Left Wing Forward": "LWF",
   "Right Wing Forward": "RWF",
   "Centre Forward": "CF",
 };
 
 app.get('/generate', async (req, res) => {
   const baseUrl = 'https://pesdb.net/efootball/';
-  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,12&page=';
+  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,11,12&page=';
 
   const allPlayers = {};
 
@@ -177,6 +179,7 @@ app.get('/generate', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate team' });
   }
 });
+
 app.get('/pull:count', async (req, res) => {
   const count = parseInt(req.params.count);
   if (isNaN(count) || count <= 0) {
@@ -184,7 +187,7 @@ app.get('/pull:count', async (req, res) => {
   }
 
   const baseUrl = 'https://pesdb.net/efootball/';
-  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,12&page=';
+  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,11,12&page=';
   const posMap = {
     "Goalkeeper": "GK",
     "Centre Back": "CB",
@@ -192,6 +195,7 @@ app.get('/pull:count', async (req, res) => {
     "Right Back": "RB",
     "Defensive Midfielder": "DMF",
     "Attacking Midfielder": "AMF",
+    "Left Wing Forward": "LWF",
     "Right Wing Forward": "RWF",
     "Centre Forward": "CF",
   };
