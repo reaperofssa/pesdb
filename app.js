@@ -175,7 +175,80 @@ app.get('/generate', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate team' });
   }
 });
+app.get('/pull:count', async (req, res) => {
+  const count = parseInt(req.params.count);
+  if (isNaN(count) || count <= 0) {
+    return res.status(400).json({ error: 'Invalid count number in URL' });
+  }
 
+  const baseUrl = 'https://pesdb.net/efootball/';
+  const query = '?mode=authentic&pos=0,1,2,3,4,8,9,10,12&page=';
+  const posMap = {
+    "Goalkeeper": "GK",
+    "Centre Back": "CB",
+    "Left Back": "LB",
+    "Right Back": "RB",
+    "Defensive Midfielder": "DMF",
+    "Attacking Midfielder": "AMF",
+    "Right Wing Forward": "RWF",
+    "Centre Forward": "CF",
+  };
+
+  const allPlayers = [];
+
+  try {
+    for (let page = 6; page <= 30; page++) {
+      const { data: html } = await axios.get(`${baseUrl}${query}${page}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+
+      const $ = cheerio.load(html);
+
+      $('table.players tr').each((_, row) => {
+        const posCell = $(row).find('td').eq(0);
+        const nameCell = $(row).find('td').eq(1);
+        if (!posCell.length || !nameCell.length) return;
+
+        const position = posMap[$(posCell).find('div').attr('title')];
+        if (!position) return;
+
+        const idMatch = nameCell.find('a').attr('href')?.match(/id=(\d+)/);
+        const id = idMatch ? idMatch[1] : null;
+        if (!id) return;
+
+        const player = {
+          name: nameCell.text().trim(),
+          id,
+          position,
+          age: $(row).find('td').eq(6).text().trim(),
+          rating: $(row).find('td').eq(7).text().trim()
+        };
+
+        allPlayers.push(player);
+      });
+    }
+
+    if (allPlayers.length < count) {
+      return res.status(500).json({ error: `Only found ${allPlayers.length} players, can't return ${count}` });
+    }
+
+    const selected = [];
+    const usedIndices = new Set();
+
+    while (selected.length < count) {
+      const randIdx = Math.floor(Math.random() * allPlayers.length);
+      if (!usedIndices.has(randIdx)) {
+        selected.push(allPlayers[randIdx]);
+        usedIndices.add(randIdx);
+      }
+    }
+
+    res.json({ pulled: selected });
+  } catch (err) {
+    console.error('⚠️ Pull route failed:', err.message);
+    res.status(500).json({ error: 'Failed to pull players' });
+  }
+});
 app.listen(PORT, () => {
   console.log(`🟢 Server running at http://localhost:${PORT}`);
 });
