@@ -3,8 +3,6 @@ const path = require('path');
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { spawn } = require("child_process");
-const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -254,61 +252,6 @@ app.get('/pull:count', async (req, res) => {
   }
 });
 
-function addImageToVideo(videoPath, imagePath, outputPath, callback) {
-    const startTime = 8;
-    const width = 300;
-    const height = 300;
-
-    const glowFilter = `[1:v]scale=${width}:${height},format=rgba[img];` +
-        `[img]split[img1][img2];` +
-        `[img1]boxblur=20:1:cr=0:ar=0[glow];` +
-        `[0:v][glow]overlay=(W-w)/2:(H-h)/2:enable='gte(t,${startTime})'[base];` +
-        `[base][img2]overlay=(W-w)/2:(H-h)/2:enable='gte(t,${startTime})':format=auto`;
-
-    const ffmpegArgs = [
-        "-i", videoPath,
-        "-i", imagePath,
-        "-filter_complex", glowFilter,
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-crf", "23",
-        "-c:a", "copy",
-        "-y",
-        outputPath
-    ];
-
-    const ffmpeg = spawn("ffmpeg", ffmpegArgs);
-
-    ffmpeg.stderr.on("data", (data) => console.log(data.toString()));
-    ffmpeg.on("close", (code) => callback(code === 0 ? null : new Error("FFmpeg failed")));
-}
-
-app.get("/add_overlay", async (req, res) => {
-    const imageUrl = req.query.image;
-    if (!imageUrl) return res.status(400).json({ error: "Missing 'image' parameter" });
-
-    try {
-        const imagePath = path.join("/tmp", `${uuidv4()}.png`);
-        const outputPath = path.join("/tmp", `${uuidv4()}.mp4`);
-        const videoPath = path.join(__dirname, "input.mp4");
-
-        const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
-        fs.writeFileSync(imagePath, response.data);
-
-        addImageToVideo(videoPath, imagePath, outputPath, (err) => {
-            if (err) return res.status(500).json({ error: "Error processing video" });
-
-            res.download(outputPath, "output.mp4", () => {
-                fs.unlinkSync(imagePath);
-                fs.unlinkSync(outputPath);
-            });
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
-    }
-});
 app.listen(PORT, () => {
   console.log(`🟢 Server running at http://localhost:${PORT}`);
 });
