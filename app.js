@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express();
